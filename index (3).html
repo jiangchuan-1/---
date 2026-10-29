@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI项目管理工作台 V1.2</title>
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Microsoft Yahei", sans-serif; }
+        body { background: #f0f2f5; padding: 12px; }
+        .header { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+        .header h1 { font-size: 20px; color: #1a1a1a; margin-bottom: 4px; }
+        .header .sub { color: #666; font-size: 13px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+        .btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-size: 14px; }
+        .btn-primary { background: #1677ff; color: white; }
+        .btn-secondary { background: #f0f0f0; color: #333; }
+        .btn-danger { background: #ff4d4f; color: white; }
+        .btn-ai { background: #722ed1; color: white; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; margin-bottom: 16px; }
+        .kpi-card { background: #fff; padding: 16px; border-radius: 8px; text-align: center; }
+        .kpi-card .num { font-size: 28px; font-weight: bold; margin: 4px 0; }
+        .kpi-card .label { color: #666; font-size: 13px; }
+        .kpi-card.total .num { color: #1677ff; }
+        .kpi-card.deliver .num { color: #52c41a; }
+        .kpi-card.risk .num { color: #ff4d4f; }
+        .kpi-card.done .num { color: #722ed1; }
+        .kpi-card.benefit .num { color: #fa8c16; }
+        .dashboard-row { display: grid; grid-template-columns: 1fr; gap: 16px; margin-bottom: 16px; }
+        @media (min-width: 768px) {
+            .dashboard-row { grid-template-columns: 1fr 1fr; }
+        }
+        .chart-card { background: #fff; padding: 16px; border-radius: 8px; }
+        .chart-card h3 { font-size: 15px; margin-bottom: 12px; color: #333; }
+        .chart { height: 280px; }
+        .table-card { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 16px; overflow-x: auto; }
+        .table-card h3 { font-size: 15px; margin-bottom: 12px; color: #333; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 1000px; }
+        th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+        th { background: #fafafa; font-weight: 600; position: sticky; top: 0; }
+        .status-tag { padding: 2px 8px; border-radius: 4px; font-size: 12px; display: inline-block; }
+        .status-done { background: #f6ffed; color: #52c41a; }
+        .status-progress { background: #e6f7ff; color: #1677ff; }
+        .status-risk { background: #fff2e8; color: #fa8c16; }
+        .status-highrisk { background: #fff1f0; color: #ff4d4f; }
+        .gantt-bar { height: 6px; background: #f0f0f0; border-radius: 3px; position: relative; margin-top: 4px; min-width: 60px; }
+        .gantt-fill { height: 100%; border-radius: 3px; }
+        .gantt-fill.risk { background: #fa8c16; }
+        .gantt-fill.done { background: #52c41a; }
+        .gantt-fill.progress { background: #1677ff; }
+        .action-btn { padding: 4px 8px; font-size: 12px; margin-right: 4px; border: none; border-radius: 4px; cursor: pointer; }
+        .edit-btn { background: #e6f7ff; color: #1677ff; }
+        .del-btn { background: #fff1f0; color: #ff4d4f; }
+        .ai-btn { background: #f9f0ff; color: #722ed1; }
+        .risk-panel { background: #fff; padding: 16px; border-radius: 8px; margin-bottom: 16px; }
+        .risk-panel h3 { font-size: 15px; margin-bottom: 12px; color: #333; }
+        .risk-item { padding: 12px; border-left: 4px solid #ff4d4f; background: #fff2f0; margin-bottom: 10px; border-radius: 0 4px 4px 0; }
+        .risk-item.warning { border-color: #fa8c16; background: #fffbe6; }
+        .risk-item .title { font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+        .risk-item .desc { color: #666; font-size: 13px; line-height: 1.5; }
+        .checklist { background: #fff; padding: 16px; border-radius: 8px; }
+        .checklist h3 { font-size: 15px; margin-bottom: 12px; color: #333; }
+        .checklist-item { padding: 8px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; display: flex; align-items: center; }
+        .checklist-item input { margin-right: 8px; width: 16px; height: 16px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; padding: 16px; overflow-y: auto; }
+        .modal-content { background: #fff; border-radius: 8px; max-width: 600px; margin: 20px auto; padding: 20px; }
+        .modal-content h3 { margin-bottom: 16px; font-size: 18px; }
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; margin-bottom: 4px; font-size: 14px; color: #333; }
+        .form-group input, .form-group select, .form-group textarea { width: 100%; padding: 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 14px; }
+        .form-group textarea { height: 80px; resize: vertical; }
+        .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+        .toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 10px 20px; border-radius: 4px; z-index: 2000; display: none; }
+        .ai-result { background: #f9f0ff; padding: 12px; border-radius: 6px; margin-top: 12px; line-height: 1.6; font-size: 14px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI项目管理工作台 V1.2</h1>
+        <div class="sub">
+            <span>计划管理员：朱峰波 | 铝箔事业部研发中心</span>
+            <span id="currentDate"></span>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn btn-primary" onclick="openAddModal()">+ 新增项目</button>
+        <button class="btn btn-secondary" onclick="exportData()">导出数据</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()">导入数据</button>
+        <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+        <button class="btn btn-secondary" onclick="resetData()">重置默认数据</button>
+    </div>
+
+    <div class="kpi-row">
+        <div class="kpi-card total">
+            <div class="label">在研项目总数</div>
+            <div class="num" id="kpiTotal">0</div>
+        </div>
+        <div class="kpi-card deliver">
+            <div class="label">11月目标交付</div>
+            <div class="num" id="kpiDeliver">0</div>
+        </div>
+        <div class="kpi-card risk">
+            <div class="label">高风险预警</div>
+            <div class="num" id="kpiRisk">0</div>
+        </div>
+        <div class="kpi-card done">
+            <div class="label">本月待结题</div>
+            <div class="num" id="kpiDone">0</div>
+        </div>
+        <div class="kpi-card benefit">
+            <div class="label">累计预期创效(万)</div>
+            <div class="num" id="kpiBenefit">0</div>
+        </div>
+    </div>
+
+    <div class="dashboard-row">
+        <div class="chart-card">
+            <h3>项目阶段分布</h3>
+            <div id="stageChart" class="chart"></div>
+        </div>
+        <div class="chart-card">
+            <h3>项目经理负载统计</h3>
+            <div id="pmChart" class="chart"></div>
+        </div>
+    </div>
+
+    <div class="risk-panel">
+        <h3>AI/PMP 风险预警（自动基于进度+节点生成）</h3>
+        <div id="riskList"></div>
+    </div>
+
+    <div class="table-card">
+        <h3>在研项目明细台账</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>单位</th>
+                    <th>项目名称</th>
+                    <th>项目经理</th>
+                    <th>目标节点</th>
+                    <th>当前阶段</th>
+                    <th>进度</th>
+                    <th>状态</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="projectTable"></tbody>
+        </table>
+    </div>
+
+    <div class="checklist">
+        <h3>PMP 月度管控检查清单（自动保存勾选状态）</h3>
+        <div id="checklist">
+            <div class="checklist-item"><input type="checkbox" data-id="1"> 完成所有待交付项目节点三方评审，锁定变更规则</div>
+            <div class="checklist-item"><input type="checkbox" data-id="2"> 完成高风险项目专项协调会，输出赶工措施</div>
+            <div class="checklist-item"><input type="checkbox" data-id="3"> 清理历史伪需求，更新需求池台账</div>
+            <div class="checklist-item"><input type="checkbox" data-id="4"> 跟踪长周期物资到货预警</div>
+            <div class="checklist-item"><input type="checkbox" data-id="5"> 完成待结题项目资料归档、效益核对</div>
+            <div class="checklist-item"><input type="checkbox" data-id="6"> 输出周度项目进度报表，同步领导及各业务单位</div>
+            <div class="checklist-item"><input type="checkbox" data-id="7"> 完成配套物料（管芯、钢架、木箱）库存台账更新</div>
+        </div>
+    </div>
+
+    <!-- 编辑/新增项目模态框 -->
+    <div class="modal" id="projectModal">
+        <div class="modal-content">
+            <h3 id="modalTitle">新增项目</h3>
+            <div class="form-group">
+                <label>单位</label>
+                <select id="editUnit">
+                    <option>铝箔</option>
+                    <option>铝模</option>
+                    <option>常德</option>
+                    <option>研制</option>
+                    <option>新品</option>
+                    <option>集团</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>项目名称</label>
+                <input type="text" id="editName" placeholder="请输入项目名称">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>项目类型</label>
+                    <select id="editType">
+                        <option>装备研发</option>
+                        <option>设备技改</option>
+                        <option>问题改善</option>
+                        <option>新产品研发</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>项目经理</label>
+                    <input type="text" id="editPm" placeholder="请输入项目经理姓名">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>目标节点</label>
+                    <input type="text" id="editTarget" placeholder="如：11月交付">
+                </div>
+                <div class="form-group">
+                    <label>当前阶段</label>
+                    <select id="editStage">
+                        <option>调研立项</option>
+                        <option>方案评审</option>
+                        <option>图纸下发</option>
+                        <option>物资到货</option>
+                        <option>装配验收</option>
+                        <option>调试交付</option>
+                        <option>客户验收</option>
+                        <option>项目结题</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>进度（%）</label>
+                    <input type="number" id="editProgress" min="0" max="100" value="0">
+                </div>
+                <div class="form-group">
+                    <label>状态</label>
+                    <select id="editStatus">
+                        <option value="progress">进行中</option>
+                        <option value="warning">需关注</option>
+                        <option value="highrisk">高风险</option>
+                        <option value="done">已完成</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>各节点计划日期（固定节点）</label>
+                <div class="form-row">
+                    <input type="date" id="editNode1" placeholder="调研立项">
+                    <input type="date" id="editNode2" placeholder="方案评审">
+                    <input type="date" id="editNode3" placeholder="图纸下发">
+                    <input type="date" id="editNode4" placeholder="物资到货">
+                    <input type="date" id="editNode5" placeholder="装配验收">
+                    <input type="date" id="editNode6" placeholder="调试交付">
+                    <input type="date" id="editNode7" placeholder="客户验收">
+                    <input type="date" id="editNode8" placeholder="项目结题">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>进展/问题备注</label>
+                <textarea id="editNote" placeholder="填写当前进展、存在问题"></textarea>
+            </div>
+            <div class="form-group">
+                <label>预期效益（万元）</label>
+                <input type="number" id="editBenefit" min="0" value="0" step="0.01">
+            </div>
+            <div class="modal-btns">
+                <button class="btn btn-secondary" onclick="closeModal()">取消</button>
+                <button class="btn btn-primary" onclick="saveProject()">保存</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AI助手模态框 -->
+    <div class="modal" id="aiModal">
+        <div class="modal-content">
+            <h3>🤖 AI项目助手（PMP专家视角）</h3>
+            <div class="form-group">
+                <label>当前项目：<span id="aiProjectName"></span></label>
+                <textarea id="aiInput" placeholder="输入项目最新进展、遇到的问题，例如：物资到货延迟3天，现场装配人手不足，需要协调生产停机窗口..."></textarea>
+            </div>
+            <button class="btn btn-ai" onclick="runAiAnalysis()">AI分析项目状态</button>
+            <div class="ai-result" id="aiResult" style="display:none;"></div>
+            <div class="modal-btns">
+                <button class="btn btn-secondary" onclick="closeAiModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+    // 默认初始数据
+    const defaultProjects = [
+        {id:1, unit:"铝模", name:"C槽自动焊", type:"装备研发", pm:"冯智丹", target:"11月交付", stage:"装配验收", status:"progress", progress:90, note:"研制加工完成90%", benefit:0, nodes:["","","","","2026-11-02","2026-11-10","2026-11-11",""]},
+        {id:2, unit:"铝模", name:"2#U板线提效", type:"设备技改", pm:"曾帅", target:"11月交付", stage:"图纸下发", status:"progress", progress:60, note:"", benefit:0, nodes:["","","2026-11-03","","2026-11-18","2026-11-22","2026-11-25","2026-11-26"]},
+        {id:3, unit:"铝箔", name:"55#成品退火炉节能降耗", type:"设备技改", pm:"李成展", target:"11月交付", stage:"物资到货", status:"highrisk", progress:40, note:"待确定停机时间", benefit:0, nodes:["","","","2026-11-05","2026-11-22","2026-11-29","2026-11-30",""]},
+        {id:4, unit:"铝模", name:"5#U板线自动下料", type:"装备研发", pm:"冯智丹", target:"11月交付", stage:"方案评审", status:"warning", progress:50, note:"", benefit:0, nodes:["","","2026-11-05","","2026-11-20","2026-11-25","2026-11-29","2026-11-30"]},
+        {id:5, unit:"铝模", name:"压力冲T字筋自动装袋", type:"装备研发", pm:"曾帅", target:"11月交付", stage:"方案评审", status:"progress", progress:60, note:"计划节点调整", benefit:0, nodes:["","","2026-11-05","","2026-11-15","2026-11-15","2026-11-18",""]},
+        {id:6, unit:"铝箔", name:"薄剪机双卷取改善", type:"设备技改", pm:"袁名智", target:"11月交付", stage:"装配验收", status:"done", progress:100, note:"", benefit:0, nodes:["","","2026-11-02","","2026-11-10","2026-11-15","2026-11-16","2026-11-16"]},
+        {id:7, unit:"铝箔", name:"高温炉风机座改造", type:"设备技改", pm:"袁名智", target:"11月交付", stage:"方案评审", status:"warning", progress:55, note:"待沟通电机委外事项", benefit:0, nodes:["","","","2026-11-10","2026-11-15","2026-11-20","2026-11-21","2026-11-29"]},
+        {id:8, unit:"铝箔", name:"轻量化铝卷减震托盘研发", type:"装备研发", pm:"李成展", target:"11月交付", stage:"方案评审", status:"progress", progress:45, note:"待确定对接人", benefit:0, nodes:["","2026-11-04","2026-11-11","2026-11-16","2026-11-23","2026-11-27","2026-11-27","2026-11-28"]},
+        {id:9, unit:"常德", name:"铸轧机护罩改善", type:"设备技改", pm:"宋展", target:"11月交付", stage:"方案评审", status:"progress", progress:70, note:"方案确定，顶棚减重结构设计中", benefit:0, nodes:["2026-11-02","2026-11-03","2026-11-06","","2026-11-18","2026-11-25","2026-11-26","2026-11-28"]},
+        {id:10, unit:"研制", name:"300管芯轻量化设计", type:"设备技改", pm:"宋展", target:"11月交付", stage:"装配验收", status:"progress", progress:80, note:"蜂窝结构优化中", benefit:0, nodes:["","","","2026-11-16","2026-11-20","2026-11-21","2026-11-24","2026-11-29"]},
+        {id:11, unit:"研制", name:"激光机管芯自动下料/打码", type:"装备研发", pm:"宋展", target:"11月交付", stage:"调研立项", status:"progress", progress:20, note:"调研阶段", benefit:0, nodes:["2026-11-05","2026-11-10","2026-11-15","2026-11-20","2026-11-23","2026-11-25","2026-11-27",""]},
+        {id:22, unit:"铝箔", name:"4#高退炉", type:"设备技改", pm:"龚家骏", target:"结题", stage:"客户验收", status:"highrisk", progress:85, note:"整改后带料测试，炉底需全方位整改", benefit:18, nodes:["","","","","","2026-11-11","2026-11-12","2026-11-25"]},
+    ];
+
+    let projects = [];
+    let currentEditId = null;
+    let currentAiProjectId = null;
+    let stageChart, pmChart;
+
+    // 初始化
+    function init() {
+        document.getElementById('currentDate').textContent = new Date().toLocaleDateString('zh-CN');
+        const saved = localStorage.getItem('projectDataV12');
+        if (saved) {
+            projects = JSON.parse(saved);
+        } else {
+            projects = JSON.parse(JSON.stringify(defaultProjects));
+            saveData();
+        }
+        const savedChecklist = localStorage.getItem('checklistState');
+        if (savedChecklist) {
+            const state = JSON.parse(savedChecklist);
+            document.querySelectorAll('.checklist-item input').forEach(cb => {
+                cb.checked = state[cb.dataset.id] || false;
+                cb.addEventListener('change', saveChecklist);
+            });
+        } else {
+            document.querySelectorAll('.checklist-item input').forEach(cb => {
+                cb.addEventListener('change', saveChecklist);
+            });
+        }
+        renderAll();
+    }
+
+    function saveData() {
+        localStorage.setItem('projectDataV12', JSON.stringify(projects));
+    }
+
+    function saveChecklist() {
+        const state = {};
+        document.querySelectorAll('.checklist-item input').forEach(cb => {
+            state[cb.dataset.id] = cb.checked;
+        });
+        localStorage.setItem('checklistState', JSON.stringify(state));
+    }
+
+    function renderAll() {
+        renderKPI();
+        renderTable();
+        renderCharts();
+        renderRisk();
+    }
+
+    function renderKPI() {
+        document.getElementById('kpiTotal').textContent = projects.length;
+        document.getElementById('kpiDeliver').textContent = projects.filter(p => p.target.includes('11月交付')).length;
+        document.getElementById('kpiRisk').textContent = projects.filter(p => p.status === 'highrisk').length;
+        document.getElementById('kpiDone').textContent = projects.filter(p => p.target.includes('结题')).length;
+        const totalBenefit = projects.reduce((sum, p) => sum + (parseFloat(p.benefit) || 0), 0);
+        document.getElementById('kpiBenefit').textContent = totalBenefit.toFixed(1);
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('projectTable');
+        tbody.innerHTML = '';
+        projects.forEach(p => {
+            let statusClass = 'status-progress';
+            let statusText = '进行中';
+            if(p.status === 'done') { statusClass = 'status-done'; statusText = '已完成'; }
+            if(p.status === 'highrisk') { statusClass = 'status-highrisk'; statusText = '高风险'; }
+            if(p.status === 'warning') { statusClass = 'status-risk'; statusText = '需关注'; }
+            let progressClass = 'progress';
+            if(p.status === 'done') progressClass = 'done';
+            if(p.status === 'warning' || p.status === 'highrisk') progressClass = 'risk';
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${p.id}</td>
+                <td>${p.unit}</td>
+                <td>${p.name}</td>
+                <td>${p.pm}</td>
+                <td>${p.target}</td>
+                <td>${p.stage}</td>
+                <td>
+                    <div style="min-width:60px;">
+                        <span>${p.progress}%</span>
+                        <div class="gantt-bar">
+                            <div class="gantt-fill ${progressClass}" style="width:${p.progress}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td><span class="status-tag ${statusClass}">${statusText}</span></td>
+                <td>
+                    <button class="action-btn edit-btn" onclick="openEditModal(${p.id})">编辑</button>
+                    <button class="action-btn ai-btn" onclick="openAiModal(${p.id})">AI助手</button>
+                    <button class="action-btn del-btn" onclick="deleteProject(${p.id})">删除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderCharts() {
+        if(!stageChart) stageChart = echarts.init(document.getElementById('stageChart'));
+        if(!pmChart) pmChart = echarts.init(document.getElementById('pmChart'));
+        
+        const stageCount = {};
+        projects.forEach(p => { stageCount[p.stage] = (stageCount[p.stage]||0)+1; });
+        stageChart.setOption({
+            tooltip: { trigger: 'item' },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                data: Object.keys(stageCount).map(k => ({name:k, value:stageCount[k]})),
+                emphasis: { itemStyle: { shadowBlur: 10, shadowOffsetX: 0, shadowColor: 'rgba(0, 0, 0, 0.5)' } }
+            }]
+        });
+
+        const pmCount = {};
+        projects.forEach(p => { pmCount[p.pm] = (pmCount[p.pm]||0)+1; });
+        pmChart.setOption({
+            tooltip: {},
+            xAxis: { type: 'category', data: Object.keys(pmCount), axisLabel: { rotate: 45 } },
+            yAxis: { type: 'value' },
+            series: [{ data: Object.values(pmCount), type: 'bar', itemStyle: { color: '#1677ff' } }]
+        });
+    }
+
+    function renderRisk() {
+        const riskList = document.getElementById('riskList');
+        const risks = projects.filter(p => p.status === 'highrisk' || p.status === 'warning');
+        if(risks.length === 0) {
+            riskList.innerHTML = '<div style="color:#666;text-align:center;padding:20px;">当前无预警项目</div>';
+            return;
+        }
+        riskList.innerHTML = risks.map(p => `
+            <div class="risk-item ${p.status === 'warning' ? 'warning' : ''}">
+                <div class="title">${p.status === 'highrisk' ? '【高风险】' : '【中风险】'} ${p.name}（${p.pm}）</div>
+                <div class="desc">当前进度${p.progress}%，处于${p.stage}阶段，${p.note ? '备注：' + p.note : '请重点跟踪节点进度'}，建议本周内专项跟进，避免影响11月交付。</div>
+            </div>
+        `).join('');
+    }
+
+    function openAddModal() {
+        currentEditId = null;
+        document.getElementById('modalTitle').textContent = '新增项目';
+        document.getElementById('editUnit').value = '铝箔';
+        document.getElementById('editName').value = '';
+        document.getElementById('editType').value = '装备研发';
+        document.getElementById('editPm').value = '';
+        document.getElementById('editTarget').value = '11月交付';
+        document.getElementById('editStage').value = '调研立项';
+        document.getElementById('editProgress').value = 0;
+        document.getElementById('editStatus').value = 'progress';
+        for(let i=1;i<=8;i++) document.getElementById(`editNode${i}`).value = '';
+        document.getElementById('editNote').value = '';
+        document.getElementById('editBenefit').value = 0;
+        document.getElementById('projectModal').style.display = 'block';
+    }
+
+    function openEditModal(id) {
+        const p = projects.find(item => item.id === id);
+        if(!p) return;
+        currentEditId = id;
+        document.getElementById('modalTitle').textContent = '编辑项目';
+        document.getElementById('editUnit').value = p.unit;
+        document.getElementById('editName').value = p.name;
+        document.getElementById('editType').value = p.type;
+        document.getElementById('editPm').value = p.pm;
+        document.getElementById('editTarget').value = p.target;
+        document.getElementById('editStage').value = p.stage;
+        document.getElementById('editProgress').value = p.progress;
+        document.getElementById('editStatus').value = p.status;
+        for(let i=1;i<=8;i++) document.getElementById(`editNode${i}`).value = p.nodes?.[i-1] || '';
+        document.getElementById('editNote').value = p.note;
+        document.getElementById('editBenefit').value = p.benefit;
+        document.getElementById('projectModal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('projectModal').style.display = 'none';
+    }
+
+    function saveProject() {
+        const nodes = [];
+        for(let i=1;i<=8;i++) nodes.push(document.getElementById(`editNode${i}`).value);
+        const data = {
+            unit: document.getElementById('editUnit').value,
+            name: document.getElementById('editName').value.trim(),
+            type: document.getElementById('editType').value,
+            pm: document.getElementById('editPm').value.trim(),
+            target: document.getElementById('editTarget').value,
+            stage: document.getElementById('editStage').value,
+            progress: parseInt(document.getElementById('editProgress').value) || 0,
+            status: document.getElementById('editStatus').value,
+            note: document.getElementById('editNote').value.trim(),
+            benefit: parseFloat(document.getElementById('editBenefit').value) || 0,
+            nodes: nodes
+        };
+        if(!data.name || !data.pm) {
+            showToast('请填写项目名称和项目经理');
+            return;
+        }
+        if(currentEditId) {
+            const index = projects.findIndex(p => p.id === currentEditId);
+            projects[index] = {...projects[index], ...data};
+            showToast('项目更新成功');
+        } else {
+            const newId = Math.max(...projects.map(p => p.id), 0) + 1;
+            projects.push({id: newId, ...data});
+            showToast('项目新增成功');
+        }
+        saveData();
+        closeModal();
+        renderAll();
+    }
+
+    function deleteProject(id) {
+        if(confirm('确定要删除这个项目吗？')) {
+            projects = projects.filter(p => p.id !== id);
+            saveData();
+            renderAll();
+            showToast('项目已删除');
+        }
+    }
+
+    function openAiModal(id) {
+        const p = projects.find(item => item.id === id);
+        if(!p) return;
+        currentAiProjectId = id;
+        document.getElementById('aiProjectName').textContent = p.name;
+        document.getElementById('aiInput').value = '';
+        document.getElementById('aiResult').style.display = 'none';
+        document.getElementById('aiModal').style.display = 'block';
+    }
+
+    function closeAiModal() {
+        document.getElementById('aiModal').style.display = 'none';
+    }
+
+    function runAiAnalysis() {
+        const input = document.getElementById('aiInput').value.trim();
+        const p = projects.find(item => item.id === currentAiProjectId);
+        if(!p) return;
+        let result = '';
+        const today = new Date();
+        
+        // 基础状态判断
+        result += `<b>📊 项目当前状态评估：</b><br>`;
+        result += `• 项目阶段：${p.stage}，当前进度${p.progress}%<br>`;
+        result += `• 目标节点：${p.target}，当前状态：${p.status === 'done' ? '已完成' : p.status === 'highrisk' ? '高风险延期预警' : p.status === 'warning' ? '需重点关注' : '正常推进'}<br>`;
+        
+        // 节点偏差判断
+        if(p.nodes) {
+            result += `<br><b>📅 关键节点检查：</b><br>`;
+            const stageOrder = ['调研立项','方案评审','图纸下发','物资到货','装配验收','调试交付','客户验收','项目结题'];
+            const currentStageIndex = stageOrder.indexOf(p.stage);
+            for(let i=0;i<=currentStageIndex;i++) {
+                if(p.nodes[i]) {
+                    const nodeDate = new Date(p.nodes[i]);
+                    const diffDays = Math.ceil((today - nodeDate)/(1000*60*60*24));
+                    if(diffDays > 3 && p.status !== 'done') {
+                        result += `⚠️ ${stageOrder[i]}节点（计划${p.nodes[i]}）已超期${diffDays}天，请重点跟进<br>`;
+                    } else {
+                        result += `✅ ${stageOrder[i]}节点（计划${p.nodes[i]}）已按计划完成<br>`;
+                    }
+                }
+            }
+        }
+
+        // 输入问题分析
+        if(input) {
+            result += `<br><b>💬 你反馈的问题分析与PMP建议：</b><br>`;
+            if(input.includes('物资') || input.includes('到货') || input.includes('采购')) {
+                result += `• 识别到【物资齐套风险】：建议立即核对采购订单状态，明确到货时间，若延迟超3天，立即启动备选供应商/临时调拨预案，同步调整后续装配计划，避免等待窝工。<br>`;
+            }
+            if(input.includes('人手') || input.includes('人员') || input.includes('不够')) {
+                result += `• 识别到【资源不足风险】：建议梳理当前任务优先级，优先保障关键路径节点，非关键任务延后；必要时申请跨部门临时支援，避免整体进度拖期。<br>`;
+            }
+            if(input.includes('停机') || input.includes('生产') || input.includes('窗口')) {
+                result += `• 识别到【现场协调风险】：建议提前3天与生产班组确认停机窗口，出具停机申请单，明确停机时长、配合人员、安全措施，避免临时被生产计划挤占。<br>`;
+            }
+            if(input.includes('延期') || input.includes('拖期') || input.includes('来不及')) {
+                result += `• 识别到【进度偏差风险】：立即组织项目组做赶工分析，可采取关键路径加班、并行作业、增加资源等措施；若偏差超5天，必须走三方变更评审流程，重新确认交付节点，避免无依据延期。<br>`;
+            }
+            result += `• 通用建议：每日跟进节点完成情况，问题不过夜，每周五输出周进度报表同步给相关方。<br>`;
+        }
+
+        // 下一步行动建议
+        result += `<br><b>🎯 下一步行动建议：</b><br>`;
+        if(p.progress < 30) {
+            result += `1. 本周内完成方案评审，锁定技术方案<br>2. 启动长周期物资采购流程<br>`;
+        } else if(p.progress < 70) {
+            result += `1. 紧盯物资到货节点，提前催交<br>2. 提前与现场确认装配条件<br>`;
+        } else {
+            result += `1. 加快调试进度，提前预约客户验收时间<br>2. 整理结题资料，准备效益核算<br>`;
+        }
+
+        document.getElementById('aiResult').innerHTML = result;
+        document.getElementById('aiResult').style.display = 'block';
+    }
+
+    function exportData() {
+        const dataStr = JSON.stringify(projects, null, 2);
+        const blob = new Blob([dataStr], {type: 'application/json'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `项目台账_V1.2_${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            try {
+                const data = JSON.parse(e.target.result);
+                projects = data;
+                saveData();
+                renderAll();
+                showToast('数据导入成功');
+            } catch(err) {
+                showToast('导入失败，请检查文件格式');
+            }
+        };
+        reader.readAsText(file);
+    }
+
+    function resetData() {
+        if(confirm('确定要重置为默认数据吗？当前所有修改都会丢失')) {
+            projects = JSON.parse(JSON.stringify(defaultProjects));
+            saveData();
+            renderAll();
+            showToast('数据已重置');
+        }
+    }
+
+    function showToast(msg) {
+        const toast = document.getElementById('toast');
+        toast.textContent = msg;
+        toast.style.display = 'block';
+        setTimeout(() => { toast.style.display = 'none'; }, 2000);
+    }
+
+    window.addEventListener('resize', () => {
+        if(stageChart) stageChart.resize();
+        if(pmChart) pmChart.resize();
+    });
+
+    init();
+</script>
+</body>
+</html>
